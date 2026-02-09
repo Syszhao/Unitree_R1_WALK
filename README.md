@@ -1,3 +1,6 @@
+需要下面的链接去下载R1的描述文件
+git clone https://github.com/unitreerobotics/unitree_ros.git
+
 #整体结构
 
 ##机器人描述文件
