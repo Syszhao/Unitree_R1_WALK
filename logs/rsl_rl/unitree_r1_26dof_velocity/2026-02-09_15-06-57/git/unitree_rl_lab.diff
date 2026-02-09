@@ -1,0 +1,241 @@
+--- git status ---
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   scripts/rsl_rl/play.py
+	modified:   source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	source/unitree_rl_lab/.vscode/
+	source/unitree_rl_lab/unitree_rl_lab/tasks/locomotion/robots/r1/
+	unitree_model/
+	unitree_ros/
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/scripts/rsl_rl/play.py b/scripts/rsl_rl/play.py
+index fd5ff85..77b1773 100644
+--- a/scripts/rsl_rl/play.py
++++ b/scripts/rsl_rl/play.py
+@@ -56,7 +56,8 @@ import isaaclab_tasks  # noqa: F401
+ from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent
+ from isaaclab.utils.assets import retrieve_file_path
+ from isaaclab.utils.dict import print_dict
+-from isaaclab.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
++# [FIX]: Commented out missing module
++# from isaaclab.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
+ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper, export_policy_as_jit, export_policy_as_onnx
+ from isaaclab_tasks.utils import get_checkpoint_path
+ 
+@@ -80,14 +81,22 @@ def main():
+     log_root_path = os.path.join("logs", "rsl_rl", agent_cfg.experiment_name)
+     log_root_path = os.path.abspath(log_root_path)
+     print(f"[INFO] Loading experiment from directory: {log_root_path}")
+-    if args_cli.use_pretrained_checkpoint:
+-        resume_path = get_published_pretrained_checkpoint("rsl_rl", args_cli.task)
+-        if not resume_path:
+-            print("[INFO] Unfortunately a pre-trained checkpoint is currently unavailable for this task.")
+-            return
+-    elif args_cli.checkpoint:
++
++    # [FIX]: Removed logic for pretrained checkpoint since module is gone
++    # if args_cli.use_pretrained_checkpoint:
++    #     resume_path = get_published_pretrained_checkpoint("rsl_rl", args_cli.task)
++    #     if not resume_path:
++    #         print("[INFO] Unfortunately a pre-trained checkpoint is currently unavailable for this task.")
++    #         return
++    # elif args_cli.checkpoint:
++    
++    if args_cli.checkpoint:
+         resume_path = retrieve_file_path(args_cli.checkpoint)
+     else:
++        # [FIX]: Ensure load_run is present or try to load latest if run_name is set in config
++        if not agent_cfg.load_run and not agent_cfg.run_name:
++             print(f"[WARNING] You did not specify --load_run. Trying to find latest run in {log_root_path}...")
++             
+         resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
+ 
+     log_dir = os.path.dirname(resume_path)
+@@ -186,4 +195,4 @@ if __name__ == "__main__":
+     # run the main function
+     main()
+     # close sim app
+-    simulation_app.close()
++    simulation_app.close()
+\ No newline at end of file
+diff --git a/source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py b/source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py
+index e78413a..39ba40e 100644
+--- a/source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py
++++ b/source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py
+@@ -17,8 +17,8 @@ from isaaclab.utils import configclass
+ 
+ from unitree_rl_lab.assets.robots import unitree_actuators
+ 
+-UNITREE_MODEL_DIR = "path/to/unitree_model"  # Replace with the actual path to your unitree_model directory
+-UNITREE_ROS_DIR = "path/to/unitree_ros"  # Replace with the actual path to your unitree_ros package
++UNITREE_MODEL_DIR = "/home/user/Isaaclab/unitree_rl_lab/unitree_model"  # Replace with the actual path to your unitree_model directory
++UNITREE_ROS_DIR = "/home/user/Isaaclab/unitree_rl_lab/unitree_ros"  # Replace with the actual path to your unitree_ros package
+ 
+ 
+ @configclass
+@@ -508,6 +508,154 @@ UNITREE_G1_29DOF_CFG = UnitreeArticulationCfg(
+         "right_wrist_yaw_joint",
+     ],
+ )
++UNITREE_R1_26DOF_CFG = UnitreeArticulationCfg(
++    spawn=UnitreeUrdfFileCfg(
++        asset_path=f"{UNITREE_ROS_DIR}/robots/r1_description/R1.urdf",
++    ),
++    init_state=ArticulationCfg.InitialStateCfg(
++        pos=(0.0, 0.0, 0.8),
++        joint_pos={
++            # === Legs (Symmetric) ===
++            ".*_hip_yaw_joint": 0.0,
++            ".*_hip_pitch_joint": -0.38,
++            ".*_knee_joint": 0.45,
++            ".*_ankle_pitch_joint": -0.10,
++            
++            # === Legs (Asymmetric - Roll) ===
++            "left_hip_roll_joint": 0.0,
++            "right_hip_roll_joint": 0.0,
++            "left_ankle_roll_joint": 0.20,
++            "right_ankle_roll_joint": -0.20,
++
++            # === Waist ===
++            "waist_roll_joint": 0.0,
++            "waist_yaw_joint": 0.0,
++
++            # === Arms (Asymmetric - Roll) ===
++            # 左臂 roll=0.12, 右臂 roll=-0.12
++            "left_shoulder_roll_joint": 0.12,
++            "right_shoulder_roll_joint": -0.12,
++            
++            # === Arms (Symmetric) ===
++            ".*_shoulder_pitch_joint": 0.0,
++            ".*_shoulder_yaw_joint": 0.0,
++            ".*_elbow_joint": 0.77,
++            ".*_wrist_roll_joint": 0.0,
++
++            # === Head ===
++            "head_pitch_joint": 0.0,
++            "head_yaw_joint": 0.0,
++        },
++        joint_vel={".*": 0.0},
++    ),
++    actuators={
++        # 组1: 强力承重关节 (Hips Pitch/Roll, Knees)
++        # 逻辑：Stiffness ~80, Damping ~3-4
++        "legs_main_drive": ImplicitActuatorCfg(
++            joint_names_expr=[".*_hip_pitch_.*", ".*_hip_roll_.*", ".*_knee_.*"],
++            effort_limit_sim=139,  # 需根据R1电机实际参数调整，这里沿用参考值
++            velocity_limit_sim=20.0,
++            stiffness={
++                ".*_hip_pitch_.*": 80.0, # 你的配置: 80
++                ".*_hip_roll_.*": 80.0,  # 你的配置: 80
++                ".*_knee_.*": 80.0,      # 你的配置: 80
++            },
++            damping={
++                ".*_hip_.*": 3.0,        # 你的配置: 3.0
++                ".*_knee_.*": 4.0,       # 你的配置: 4.0
++            },
++            armature=0.01,
++        ),
++        
++        # 组2: 转向与腰部 (Hip Yaw, Waist)
++        # 逻辑：Stiffness 35-60, Damping 2.0-3.0
++        "legs_yaw_waist": ImplicitActuatorCfg(
++            joint_names_expr=[".*_hip_yaw_.*", "waist_.*"],
++            effort_limit_sim=88,
++            velocity_limit_sim=32.0,
++            stiffness={
++                ".*_hip_yaw_.*": 60.0,   # 你的配置: 60
++                "waist_roll_joint": 40.0, # 你的配置: 40
++                "waist_yaw_joint": 35.0,  # 你的配置: 35
++            },
++            damping={
++                ".*_hip_yaw_.*": 2.0,
++                "waist_roll_joint": 3.0,
++                "waist_yaw_joint": 2.0,
++            },
++            armature=0.01,
++        ),
++
++        # 组3: 脚踝 (Ankles)
++        # 逻辑：Stiffness 20 (放大后), Damping 3.0
++        "feet_actuators": ImplicitActuatorCfg(
++            joint_names_expr=[".*_ankle_.*"],
++            effort_limit_sim=25,
++            velocity_limit_sim=37,
++            stiffness={
++                ".*_ankle_pitch_joint": 20.0, # 你的配置: 20
++                ".*_ankle_roll_joint": 20.0,  # 你的配置: 20
++            },
++            damping=3.0, # 你的配置: 3.0
++            armature=0.01,
++        ),
++        
++        # 组4: 上肢与头部 (Arms & Head)
++        # 逻辑：保持柔软或较低刚度
++        "upper_body_soft": ImplicitActuatorCfg(
++            joint_names_expr=[
++                ".*_shoulder_.*", 
++                ".*_elbow_.*", 
++                ".*_wrist_.*", 
++                "head_.*"
++            ],
++            effort_limit_sim=25,
++            velocity_limit_sim=37,
++            stiffness={
++                ".*_shoulder_.*": 40.0, 
++                ".*_elbow_.*": 40.0,
++                ".*_wrist_.*": 20.0,
++                "head_.*": 15.0,
++            },
++            damping={
++                ".*_shoulder_.*": 2.0,
++                ".*_elbow_.*": 2.0,
++                "head_.*": 1.0,
++                # [修改] 将 ".*" 改为具体的 wrist 正则
++                ".*_wrist_.*": 1.0, 
++            },
++            armature=0.01,
++        ),
++    },
++    joint_sdk_names=[
++        "left_hip_pitch_joint",
++        "left_hip_roll_joint",
++        "left_hip_yaw_joint",
++        "left_knee_joint",
++        "left_ankle_pitch_joint",
++        "left_ankle_roll_joint",
++        "right_hip_pitch_joint",
++        "right_hip_roll_joint",
++        "right_hip_yaw_joint",
++        "right_knee_joint",
++        "right_ankle_pitch_joint",
++        "right_ankle_roll_joint",
++        "waist_yaw_joint",
++        "waist_roll_joint",
++        "left_shoulder_pitch_joint",
++        "left_shoulder_roll_joint",
++        "left_shoulder_yaw_joint",
++        "left_elbow_joint",
++        "left_wrist_roll_joint",
++        "right_shoulder_pitch_joint",
++        "right_shoulder_roll_joint",
++        "right_shoulder_yaw_joint",
++        "right_elbow_joint",
++        "right_wrist_roll_joint",
++        "head_pitch_joint",
++        "head_yaw_joint",
++    ],
++)
+ 
+ 
+ ARMATURE_5020 = 0.003609725
